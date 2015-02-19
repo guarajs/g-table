@@ -1,0 +1,399 @@
+<polymer-element name="g-table" extends="g-base" attributes="schema validate title rows actions page pageSize lineCount enableRowSelection">
+	<template>
+		<link rel="stylesheet" href="g-table.css">
+		<div id="loading" class="hidden">
+			Carregando...
+		</div>
+
+		<div class="{{ class }}">
+			<h3 id="title">{{ title }}<template if="{{ selection }}"> ({{ selection.length }})</template></h3>
+			<div id="paginator" class="btn-group">
+				<button type="button" class="btn btn-default" id="toPrevious" href="#" on-click="{{ previousPage }}" >&lt;</button>
+				<button type="button" class="btn btn-default">Resultados: {{ paginatorTag }}</button>
+				<button type="button" class="btn btn-default" id="toNext" on-click="{{ nextPage }}">&gt;</button>	
+			</div>
+
+			<table id="table" class="table table-hover" on-click="{{ whenClicked }}" on-mouseover="{{ whenMouseOver }}" on-mouseout="{{ whenMouseOut }}">
+				<thead>
+					<tr>
+						<template if="{{ lineCount }}">
+							<th>#</th>
+						</template>
+						<template if="{{ enableRowSelection }}">
+							<th>
+								<span class="glyphicon glyphicon-pushpin" style="font-size:80%;" on-click="{{ selectAll }}"></span>
+							</th>
+						</template>
+						<template repeat="{{ column, j in columns }}">
+							<template if="{{ column.name | include }}">
+								<template if="{{ column.length }}">
+									<th style="width: {{ column.length }};">{{ column.title }}</th>
+								</template>
+								<template if="{{ !column.length }}">
+									<th>{{ column.title }}</th>
+								</template>
+							</template>
+						</template>
+					</tr>
+				</thead>
+				<tfoot></tfoot>
+				<tbody>
+					<template repeat="{{ row, i in buffer }}">
+					
+						<tr class="{{ (row.error ? 'danger' : 'noerror') }}" >
+
+							<template if="{{ lineCount }}">
+								<td>{{ row.index + 1}}</td>
+							</template>
+							
+							<template if="{{ enableRowSelection }}">
+								<td>
+									<template if="{{ row.selected }}">
+										<template if="{{ row.disabled }}">
+											<span class="glyphicon glyphicon-{{ row.disabled }}"></span>
+										</template>
+										<template if="{{ !row.disabled }}">
+											<input 	type="checkbox"
+													on-click="{{ onItemSelected }}"
+													data-idx="{{ row.index }}" 
+													checked />
+										</template>
+									</template>
+									<template if="{{ !row.selected }}">
+										<template if="{{ row.disabled }}">
+											<span class="glyphicon glyphicon-{{ row.disabled }}"></span>
+										</template>
+										<template if="{{ !row.disabled }}">
+											<input 	type="checkbox"
+													on-click="{{ onItemSelected }}"
+													data-idx="{{ row.index }}" />
+										</template>
+									</template>
+								</td>
+							</template>
+
+							<template repeat="{{ column, j in columns }}">
+								<template if="{{ column.name | include }}">
+									<template if="{{ column.name == '_actions' }}">
+										<td>
+											<template if="{{ column.type == 'dropdown' }}">
+												<g-dropdown label="Ações" options="{{ column.options }}" type="primary"></g-dropdown>
+											</template>
+											<template if="{{ column.type == 'button' }}">
+												<template bind="{{ row.data[column.name].value }}">
+													<template repeat>
+														<g-button	label="{{ label }}"
+																	type="{{ type }}"
+																	onClick="{{ onClick }}" ></g-button>
+													</template>
+												</template>
+											</template>
+										</td>
+									</template>
+									<template if="{{ column.name != '_actions' }}" bind="{{ row.data[column.name] }}">
+										<td class="{{ error ? 'error' : '' }}">
+											<g-cell text="{{ value }}"
+													error="{{ error }}"
+													issues="{{ issues }}"></g-cell>
+										</td>
+									</template>
+								</template>
+							</template>
+						</tr>
+					</template>			
+				</tbody>
+			</table>
+		</div>
+	</template>
+	<script>
+
+		/*
+		 * Please note: <g-tables> store all it's data using the 'rows' array.
+		 * The 'buffer' array is used for pagination.
+		 * The 'selection' array is used for filtering.
+		 * Most operations should use the 'view()' buffer/array
+		 */
+		Polymer('g-table', {
+    		
+    		page               : 0,      /* Pagination */
+    		pageSize           : 25,
+    		enableRowSelection : false,
+    		lineCount          : false,
+    		validate           : true,
+    		class              : "hide",
+
+    		created: function() {
+    			this.rows      = []; /* our data, unfiltered */
+    			this.selection = null; /* filtered subset of rows */
+    			this.buffer    = []; /* used to paginate results */
+    			this.columns   = [];
+    			this.schema    = {};
+    		},
+
+    		clear: function() {
+    			this.page      = 0;
+    			this.rows      = [];
+    			this.buffer    = [];
+    			this.selection = null;
+    			this.class     = "hide";
+    		},
+
+    		get paginatorTag () {
+    			var view = this.view();
+   				var start = (this.page * this.pageSize) + 1;
+   				var end = '';
+   				if(view.length < (this.page + 1) * this.pageSize)
+   				{
+   					end   = view.length;
+   				}
+   				else
+   				{
+   					end = (this.page + 1) * this.pageSize;
+   				}
+   				var total = view.length;
+   				var page  = this.page + 1;
+				return  start + ' - ' + end + ' / total: ' + total + ' / página: ' + page;
+    		},
+    		
+    		include: function(value) { /* filter */
+    			return !value.startsWith('__');
+    		},
+
+    		view: function() {
+    			if(this.selection)
+    			{
+    				return this.selection;
+    			}
+    			else
+    			{
+	    			return this.rows;	
+    			}
+    		},
+    		
+    		show: function() {
+    			this.buffer = [];
+
+    			var view = this.view();
+    			var last  = view.length - 1
+    			var start = this.page * this.pageSize;
+    			var end   = ((this.page + 1) * this.pageSize) - 1;
+    			end = last < end ? last : end;
+    			for(var i = start; i <= end ; i++)
+    			{
+    				var entry = view[i];
+    				this.buffer.push(entry);
+    			}
+
+    			this.$.toNext.className     = this.isPageValid(this.page + 1) ? "btn btn-default" : "hide";
+    			this.$.toPrevious.className = this.isPageValid(this.page - 1) ? "btn btn-default" : "hide";
+
+    			this.class = "show rounded";
+    		},
+
+    		isPageValid: function(n) {
+				if(n < 0)
+				{
+					return false;
+				}
+				var view = this.view();
+				var len = view.length;
+				return len > (n * this.pageSize);
+    		},
+
+    		previousPage: function(evt, detail, sender) {
+    			evt.preventDefault();
+    			if(this.page > 0)
+    			{
+    				this.page--;
+    				this.show();
+    			}
+    		},
+    		
+    		nextPage: function(evt, detail, sender) {
+    			evt.preventDefault();
+    			this.page++;
+    			this.show();
+    		},
+
+    		toRowData: function(raw) {
+
+    			console.log(raw);
+
+    			var $this    = this;
+    			var rowData  = {rowError: false};
+    			
+    			$.each(this.schema, function(name, item) {
+    				
+    				var value  = raw[name];
+    				var error  = false;
+    				var issues = null;
+
+    				if($this.validate && item.validators)
+    				{
+    					var result = $g.validator.validateValue(value, item.validators);
+    					error = !result.isValid;
+    					if(error)
+    					{
+    						rowData.rowError = true;
+	    					issues = result.issues;
+    					}
+    				}
+    				
+    				rowData[name] = {
+   						value  : value,
+   						error  : error,
+   						show   : true,
+   						issues : issues,
+   					};
+    			});
+    			
+    			return rowData;
+    		},
+    		
+    		appendRow: function(raw) {
+    			var index   = this.rows.length;
+    			var rowData = this.toRowData(raw);
+
+    			var entry = {
+					index    : index,
+					data     : rowData,
+    				error    : raw.options ? raw.options.error || rowData.rowError : rowData.rowError,
+    				disabled : raw.options ? raw.options.disabled : false,
+    			
+    			};
+
+    			this.rows.push(entry);
+    		},
+    		
+    		unmark: function(rowNumber) {
+    			var data = this.rows[rowNumber].data;
+    			$.each(data, function(name, cell) {
+    				cell.error = false;
+    				cell.issues = null;
+    			});
+    		},
+
+    		mark: function(rowNumber, columnName, issues) {
+   				var cell = this.rows[rowNumber].data[columnName];
+   				cell.error = true;
+   				cell.issues = issues;
+    		},
+
+    		getSelected: function() {
+    			
+    			var result = [];
+    			var view   = this.view();
+    			
+    			$.each(view, function(i, row){
+    				if(row.selected)
+    				{
+    					result.push(row);
+    				}
+    			});
+	
+				return result;
+    		},
+
+    		clearSelectedRows: function() {
+    			$.each(this.rows, function(i, row){
+    				row.selected = false;
+    			});
+    		},
+
+    		selectAll: function(evt, detail, sender) {
+    			//console.log('shift', evt.shiftKey);
+    			//console.log('crtl', evt.ctrlKey);
+
+    			this.clearSelectedRows();
+
+    			var view   = this.view();
+    			var select = evt.ctrlKey ? false : true;
+    			
+    			for (var i = 0; i < view.length; i++)
+    			{
+    				var row = view[i];
+    				if(!row.disabled)
+    				{
+	    				row.selected = select;
+    				}
+    			}
+    		},
+    		
+    		onItemSelected: function(evt, detail, sender) {
+    			var idx = sender.getAttribute('data-idx');
+    			var row = this.rowByIndex(idx);
+    			if(row)
+    			{
+    				row.selected = !row.selected;
+    			}
+    		},
+    		
+    		rowByIndex: function(index) {
+    			for (var i = 0; i < this.rows.length; i++)
+    			{
+    				var row = this.rows[i];
+    				if(row.index == index)
+    				{
+    					return row;
+    				}
+    			}
+    		},
+    		
+    		schemaChanged: function() {
+    			var columns = [];
+    			$.each(this.schema, function(key, item) {
+    				var column = item.column;
+    				if(column)
+    				{
+    					columns.push(column);
+    				}
+    				else
+    				{
+    					columns.push({name: key, title: key})
+    				}
+    			});
+    			this.columns = columns;
+    		},
+    		
+    		filter: function(column, value, matcher) {
+    			
+    			console.log('Filtering table. Column: "%s" Value: "%s"', column, value);
+
+    			this.clearSelectedRows();
+    			var result = [];
+    			$.each(this.rows, function(idx, entry) {
+    				var include = false;
+    				var item = entry.data;
+    				var keys = Object.keys(item);
+    				for(var i = 0; i < keys.length; i++)
+    				{
+    					var key	= keys[i];
+    					if(key == column)
+    					{
+    						var valueToMatch = item[key].value;
+    						include = matcher(value, valueToMatch);
+    					}
+    				}
+    				if(include)
+    				{
+    					result.push(entry);
+    				}
+    			});
+    			console.log("Filter Done!");
+    			this.selection = result;
+    			this.show();				
+    		},
+    		
+    		clearFilter: function() {
+    			this.clearSelectedRows();
+    			this.selection = null;
+    			this.show();
+    		},
+    		
+    		_handleActionClick: function(e, detail, sender) {
+				var model = e.target.templateInstance.model;
+				console.log("Clicked ", model);
+    		}
+    	});
+	</script>
+</polymer-element>
