@@ -1,0 +1,53 @@
+<link rel="import" href="g-table.html">
+
+<polymer-element name="g-table-sample">
+	<template>
+		<link rel="stylesheet" href="g-table.css">
+		<dl class="dl-horizontal" style="margin: 30px 0px;">
+			<dt>Page Size:</dt>
+			<dd><input class="form-control" value="{{ pageSize }}" /></dd>
+
+			<dt>Title:</dt>
+			<dd><input class="form-control" value="{{ heading }}" /></dd>
+
+			<dt>Enable Row Count:</dt>
+			<dd><input type="checkbox" checked="{{ rowCountConfig }}" /></dd>
+
+			<dt>Enable Row Selection: </dt>
+			<dd><input type="checkbox" checked="{{ rowSelectionConfig }}" /></dd>
+		</dl>
+		<g-table 	id="table"
+					title="{{ heading }}"
+					enableRowSelection="{{ rowSelectionConfig }}"
+					lineCount="{{ rowCountConfig }}"
+					pageSize="{{ pageSize }}"></g-table>
+	</template>
+	<script>
+
+		Polymer({
+			rowSelectionConfig: true,
+			rowCountConfig: true,
+			pageSize: 10,
+			heading: 'Sample Table',
+
+			ready: function() {
+				var table = this.$.table;
+				console.log(table.title);
+				table.schema = {
+					id		: {column: {length: '10%', name: 'id',		title: 'ID'}},
+					name    : {column: {length: '80%', name: 'name', 	title: 'NAME'}},
+				};
+				
+				for(var i = 1 ; i <= 100 ; i++)
+				{
+					table.appendRow({
+						"id"	: i,
+						"name"	: 'item ' + i,	
+					});
+				}
+
+				table.show();
+			},
+    	});
+	</script>
+</polymer-element>
