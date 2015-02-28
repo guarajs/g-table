@@ -2,7 +2,7 @@
 <link rel="import" href="../g-cell/g-cell.html">
 <link rel="import" href="../g-button/g-button.html">
 
-<polymer-element name="g-table" extends="g-base" attributes="schema validate title rows actions page pageSize lineCount enableRowSelection">
+<polymer-element name="g-table" extends="g-base" attributes="schema validate name rows actions page pageSize lineCount enableRowSelection">
 	<template>
 		<link rel="stylesheet" href="g-table.css">
 		<div id="loading" class="hidden">
@@ -10,7 +10,7 @@
 		</div>
 
 		<div class="{{ class }}">
-			<h3 id="title">{{ title }}<template if="{{ selection }}"> ({{ selection.length }})</template></h3>
+			<h3 id="title">{{ name }}<template if="{{ selection }}"> ({{ selection.length }})</template></h3>
 			<div id="paginator" class="btn-group">
 				<button type="button" class="btn btn-default" id="toPrevious" href="#" on-click="{{ previousPage }}" >&lt;</button>
 				<button type="button" class="btn btn-default">Resultados: {{ paginatorTag }}</button>
